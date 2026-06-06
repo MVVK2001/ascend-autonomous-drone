@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<robot name="drone_model">
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="3.5" />
+      <inertia ixx="0.03278" ixy="0" ixz="0" 
+               iyy="0.03278" iyz="0" izz="0.05973" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://ascend_f450_description/meshes/base_link.STL" />
+      </geometry>
+      <material name="white">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.32 0.32 0.1"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="rotor1">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.012702" />
+      <inertia ixx="3.2425E-05" ixy="0" ixz="0" 
+               iyy="2.6981E-05" iyz="0" izz="5.9234E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://ascend_f450_description/meshes/rotor1.STL" />
+      </geometry>
+      <material name="blue">
+        <color rgba="0 0 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.05" length="0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="rotor1_joint" type="continuous">
+    <origin xyz="0.15891 0.1589 0.079639" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="rotor1" />
+    <axis xyz="0 0 1" />
+    <limit effort="1000" velocity="2500"/>
+    <dynamics damping="0.004"/>
+  </joint>
+
+  <link name="rotor2">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.012702" />
+      <inertia ixx="3.2425E-05" ixy="0" ixz="0" 
+               iyy="2.6981E-05" iyz="0" izz="5.9234E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://ascend_f450_description/meshes/rotor2.STL" />
+      </geometry>
+      <material name="red">
+        <color rgba="1 0 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.05" length="0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="rotor2_joint" type="continuous">
+    <origin xyz="0.1589 -0.15891 0.079639" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="rotor2" />
+    <axis xyz="0 0 1" />
+    <limit effort="1000" velocity="2500"/>
+    <dynamics damping="0.004"/>
+  </joint>
+
+  <link name="rotor3">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.012702" />
+      <inertia ixx="3.2425E-05" ixy="0" ixz="0" 
+               iyy="2.6981E-05" iyz="0" izz="5.9234E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://ascend_f450_description/meshes/rotor3.STL" />
+      </geometry>
+      <material name="green">
+        <color rgba="0 1 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.05" length="0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="rotor3_joint" type="continuous">
+    <origin xyz="-0.15891 -0.1589 0.079639" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="rotor3" />
+    <axis xyz="0 0 1" />
+    <limit effort="1000" velocity="2500"/>
+    <dynamics damping="0.004"/>
+  </joint>
+
+  <link name="rotor4">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.012702" />
+      <inertia ixx="3.2425E-05" ixy="0" ixz="0" 
+               iyy="2.6981E-05" iyz="0" izz="5.9234E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://ascend_f450_description/meshes/rotor4.STL" />
+      </geometry>
+      <material name="yellow">
+        <color rgba="1 1 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.05" length="0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="rotor4_joint" type="continuous">
+    <origin xyz="-0.1589 0.15891 0.079639" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="rotor4" />
+    <axis xyz="0 0 1" />
+    <limit effort="1000" velocity="2500"/>
+    <dynamics damping="0.004"/>
+  </joint>
+
+</robot>
