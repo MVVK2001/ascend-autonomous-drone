@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'ascend_navigation'
+package_name = 'ascend_core'
 
 setup(
     name=package_name,
@@ -16,15 +16,10 @@ setup(
     maintainer='administrator',
     maintainer_email='administrator@todo.todo',
     description='TODO: Package description',
-    license='TODO: License declaration',
-    extras_require={
-        'test': [
-            'pytest',
-        ],
-    },
+    license='Apache-2.0',
     entry_points={
         'console_scripts': [
-            'navigation_node = ascend_navigation.navigation_node:main',
+            'mission_manager = ascend_core.mission_manager:main',
         ],
     },
 )
