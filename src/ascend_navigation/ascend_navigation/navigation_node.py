@@ -12,6 +12,7 @@ from nav_msgs.msg import Path
 
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
+from std_msgs.msg import Int32
 
 
 class NavigationNode(Node):
@@ -51,6 +52,11 @@ class NavigationNode(Node):
             self.state_callback,
             10)
 
+        self.waypoint_pub = self.create_publisher(
+            Int32,
+            '/waypoint_reached',
+            10
+        )
         # ASCEND Mission Waypoints
         self.waypoints = [
             (0.0, 0.0, 2.0),   # HOME
@@ -222,6 +228,11 @@ class NavigationNode(Node):
                 self.get_logger().info(
                     f"Reached WP {self.current_wp}"
                 )
+                
+                wp_msg = Int32()
+                wp_msg.data = self.current_wp
+                
+                self.waypoint_pub.publish(wp_msg)
 
                 self.current_wp += 1
 
