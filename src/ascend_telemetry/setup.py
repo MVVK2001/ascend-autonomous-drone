@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'telemetry_node = ascend_telemetry.telemetry_node:main',
+            'telemetry_logger = ascend_telemetry.telemetry_logger:main',
         ],
     },
 )
