@@ -3,6 +3,7 @@
 import os
 import cv2
 import json
+
 from datetime import datetime
 
 import rclpy
@@ -12,8 +13,10 @@ from std_msgs.msg import String
 from std_msgs.msg import Int32
 
 from geometry_msgs.msg import PoseStamped
+
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge 
+
+from cv_bridge import CvBridge
 
 
 class VisionNode(Node):
@@ -22,36 +25,70 @@ class VisionNode(Node):
 
         super().__init__('vision_node')
 
+        # ==================================================
         # Mission State
+        # ==================================================
+
         self.mission_state = "IDLE"
 
+        # ==================================================
         # Current Pose
+        # ==================================================
+
         self.current_pose = None
 
-        # Image Counter
+        # ==================================================
+        # Image Counters
+        # ==================================================
+
         self.image_count = 0
 
-        # Prevent Duplicate Captures
+        self.overview_captured = False
+
         self.captured_waypoints = set()
-        self.bridge = CvBridge() 
 
+        self.bridge = CvBridge()
+
+        self.last_image_msg = None
+
+        # ==================================================
         # Storage Paths
-        self.hd_dir = "/home/administrator/ascend_data/hd_images"
-        self.lr_dir = "/home/administrator/ascend_data/lr_images"
-        self.metadata_dir = "/home/administrator/ascend_data/metadata"
+        # ==================================================
 
-        # Test Image Directory
+        self.hd_dir = \
+            "/home/administrator/ascend_data/hd_images"
+
+        self.lr_dir = \
+            "/home/administrator/ascend_data/lr_images"
+
+        self.metadata_dir = \
+            "/home/administrator/ascend_data/metadata"
+
+        # ==================================================
+        # Test Images
+        # ==================================================
+
         self.test_image_dir = \
             "/home/administrator/ascend_ws/src/ascend_vision/test_images"
 
-        # Image Mapping
-        self.image_map = {
-            1: "high_day.jpg",
-            2: "mid_day.jpg",
-            3: "low_day.jpg"
-        }
+        self.image_pool = [
 
+            "high_day.jpg",
+            "mid_day.jpg",
+            "low_day.jpg",
+
+            "high_night.jpg",
+            "mid_night.jpg",
+            "low_night.jpg",
+
+            "random_1.jpg",
+            "random_2.jpg"
+        ]
+
+        # ==================================================
         # Subscribers
+        # ==================================================
+
         self.state_sub = self.create_subscription(
             String,
             '/mission_state',
@@ -73,7 +110,10 @@ class VisionNode(Node):
             10
         )
 
+        # ==================================================
         # Publishers
+        # ==================================================
+
         self.image_count_pub = self.create_publisher(
             Int32,
             '/vision/image_count',
@@ -85,31 +125,77 @@ class VisionNode(Node):
             '/vision/capture_status',
             10
         )
-        
+
         self.image_pub = self.create_publisher(
             Image,
             '/vision/latest_image',
             10
         )
 
-        self.get_logger().info(
-            "ASCEND Vision Node Started"
-        )
-        
-        self.last_image_msg = None 
-        
+        # ==================================================
+        # Timer
+        # ==================================================
+
         self.create_timer(
             1.0,
             self.publish_latest_image
         )
 
+        self.get_logger().info(
+            "ASCEND Vision Node Started"
+        )
+
+    # ==================================================
+    # Mission State
+    # ==================================================
+
     def state_callback(self, msg):
 
+        previous_state = self.mission_state
+
         self.mission_state = msg.data
+
+        self.get_logger().info(
+            f"Vision State -> {self.mission_state}"
+        )
+        # Capture overview image once
+
+        if (
+            self.mission_state == "OVERVIEW_CAPTURE"
+            and
+            not self.overview_captured
+        ):
+
+            self.get_logger().info(
+                "Triggering Overview Capture"
+            )
+            self.capture_overview_image()
+
+        # Reset when mission returns to IDLE
+
+        if (
+            previous_state != "IDLE"
+            and
+            self.mission_state == "IDLE"
+        ):
+
+            self.captured_waypoints.clear()
+
+            self.overview_captured = False
+
+            self.image_count = 0
+
+    # ==================================================
+    # Pose Callback
+    # ==================================================
 
     def pose_callback(self, msg):
 
         self.current_pose = msg
+
+    # ==================================================
+    # Waypoint Callback
+    # ==================================================
 
     def waypoint_callback(self, msg):
 
@@ -118,26 +204,158 @@ class VisionNode(Node):
         if self.mission_state != "SURVEY":
             return
 
-        if waypoint_id not in [1, 2, 3]:
+        if waypoint_id < 1:
+            return
+
+        if waypoint_id > 17:
             return
 
         if waypoint_id in self.captured_waypoints:
             return
 
-        self.captured_waypoints.add(waypoint_id)
+        self.captured_waypoints.add(
+            waypoint_id
+        )
 
-        self.capture_image(waypoint_id)
+        self.capture_image(
+            waypoint_id
+        )
+
+    # ==================================================
+    # Overview Image Capture
+    # ==================================================
+
+    def capture_overview_image(self):
+
+        image_path = os.path.join(
+            self.test_image_dir,
+            "overview.jpg"
+        )
+
+        image = cv2.imread(
+            image_path
+        )
+
+        if image is None:
+
+            self.get_logger().error(
+                "Could not load overview image"
+            )
+
+            return
+
+        self.overview_captured = True
+
+        # ---------------------------------
+        # Save HD
+        # ---------------------------------
+
+        hd_path = os.path.join(
+            self.hd_dir,
+            "overview.jpg"
+        )
+
+        cv2.imwrite(
+            hd_path,
+            image
+        )
+
+        # ---------------------------------
+        # Save LR
+        # ---------------------------------
+
+        lr_image = cv2.resize(
+            image,
+            (640, 360),
+            interpolation=cv2.INTER_AREA
+        )
+
+        lr_path = os.path.join(
+            self.lr_dir,
+            "overview_lr.jpg"
+        )
+
+        cv2.imwrite(
+            lr_path,
+            lr_image
+        )
+
+        # ---------------------------------
+        # Publish to RViz
+        # ---------------------------------
+
+        self.last_image_msg = \
+            self.bridge.cv2_to_imgmsg(
+                lr_image,
+                encoding='bgr8'
+            )
+
+        self.image_pub.publish(
+            self.last_image_msg
+        )
+
+        # ---------------------------------
+        # Metadata
+        # ---------------------------------
+
+        metadata = {
+
+            "image_type": "overview",
+
+            "timestamp":
+                datetime.now().isoformat()
+        }
+
+        if self.current_pose is not None:
+
+            metadata["position"] = {
+
+                "x":
+                    self.current_pose.pose.position.x,
+
+                "y":
+                    self.current_pose.pose.position.y,
+
+                "z":
+                    self.current_pose.pose.position.z
+            }
+
+        metadata_path = os.path.join(
+            self.metadata_dir,
+            "overview_metadata.json"
+        )
+
+        with open(metadata_path, "w") as f:
+
+            json.dump(
+                metadata,
+                f,
+                indent=4
+            )
+
+        self.get_logger().info(
+            "Overview Image Captured"
+        )
+
+    # ==================================================
+    # Survey Image Capture
+    # ==================================================
 
     def capture_image(self, waypoint_id):
 
-        image_name = self.image_map[waypoint_id]
+        image_name = self.image_pool[
+            (waypoint_id - 1)
+            % len(self.image_pool)
+        ]
 
         image_path = os.path.join(
             self.test_image_dir,
             image_name
         )
 
-        image = cv2.imread(image_path)
+        image = cv2.imread(
+            image_path
+        )
 
         if image is None:
 
@@ -151,15 +369,24 @@ class VisionNode(Node):
 
         image_id = f"{self.image_count:03d}"
 
-        # Save HD Image
+        # ---------------------------------
+        # HD Image
+        # ---------------------------------
+
         hd_path = os.path.join(
             self.hd_dir,
             f"image_{image_id}.jpg"
         )
 
-        cv2.imwrite(hd_path, image)
+        cv2.imwrite(
+            hd_path,
+            image
+        )
 
-        # Create LR Image
+        # ---------------------------------
+        # LR Image
+        # ---------------------------------
+
         lr_image = cv2.resize(
             image,
             (640, 360),
@@ -171,31 +398,58 @@ class VisionNode(Node):
             f"image_{image_id}_lr.jpg"
         )
 
-        cv2.imwrite(lr_path, lr_image)
-        
-        # Publish image to RViz
-
-        self.last_image_msg = self.bridge.cv2_to_imgmsg(
-            lr_image,
-            encoding='bgr8'
+        cv2.imwrite(
+            lr_path,
+            lr_image
         )
 
-        self.image_pub.publish(self.last_image_msg)
+        # ---------------------------------
+        # RViz Image
+        # ---------------------------------
 
+        self.last_image_msg = \
+            self.bridge.cv2_to_imgmsg(
+                lr_image,
+                encoding='bgr8'
+            )
+
+        self.image_pub.publish(
+            self.last_image_msg
+        )
+
+        # ---------------------------------
         # Metadata
+        # ---------------------------------
+
         metadata = {
-            "image_id": self.image_count,
-            "waypoint": waypoint_id,
-            "mission_state": self.mission_state,
-            "timestamp": datetime.now().isoformat()
+
+            "image_type": "survey",
+
+            "image_id":
+                self.image_count,
+
+            "waypoint":
+                waypoint_id,
+
+            "mission_state":
+                self.mission_state,
+
+            "timestamp":
+                datetime.now().isoformat()
         }
 
         if self.current_pose is not None:
 
             metadata["position"] = {
-                "x": self.current_pose.pose.position.x,
-                "y": self.current_pose.pose.position.y,
-                "z": self.current_pose.pose.position.z
+
+                "x":
+                    self.current_pose.pose.position.x,
+
+                "y":
+                    self.current_pose.pose.position.y,
+
+                "z":
+                    self.current_pose.pose.position.z
             }
 
         metadata_path = os.path.join(
@@ -211,28 +465,60 @@ class VisionNode(Node):
                 indent=4
             )
 
+        # ---------------------------------
         # Publish Count
+        # ---------------------------------
+
         count_msg = Int32()
-        count_msg.data = self.image_count
 
-        self.image_count_pub.publish(count_msg)
+        count_msg.data = \
+            self.image_count
 
+        self.image_count_pub.publish(
+            count_msg
+        )
+
+        # ---------------------------------
         # Publish Status
-        status_msg = String()
-        status_msg.data = \
-            f"Captured Image {self.image_count} at WP{waypoint_id}"
+        # ---------------------------------
 
-        self.status_pub.publish(status_msg)
+        status_msg = String()
+
+        status_msg.data = (
+            f"Captured Image "
+            f"{self.image_count} "
+            f"at WP{waypoint_id}"
+        )
+
+        self.status_pub.publish(
+            status_msg
+        )
 
         self.get_logger().info(
             status_msg.data
         )
-        
+
+    # ==================================================
+    # RViz Image Refresh
+    # ==================================================
+
     def publish_latest_image(self):
-         if self.last_image_msg is not None:
-             self.image_pub.publish(
-                 self.last_image_msg
-             )
+
+        if (
+            self.mission_state == "OVERVIEW_CAPTURE"
+            and
+            not self.overview_captured
+        ):
+
+            self.capture_overview_image()
+
+        if self.last_image_msg is not None:
+
+            self.image_pub.publish(
+                self.last_image_msg
+            )
+
+    # ==================================================
 
 
 def main(args=None):
@@ -249,4 +535,5 @@ def main(args=None):
 
 
 if __name__ == '__main__':
+
     main()

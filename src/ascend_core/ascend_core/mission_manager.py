@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 
 from std_msgs.msg import String
+from std_msgs.msg import Bool
 
 
 class MissionManager(Node):
@@ -12,39 +13,117 @@ class MissionManager(Node):
 
         super().__init__('mission_manager')
 
+        # ==========================================
+        # Publisher
+        # ==========================================
+
         self.state_pub = self.create_publisher(
             String,
             '/mission_state',
-            10)
+            10
+        )
 
-        self.states = [
-            "IDLE",
-            "TAKEOFF",
-            "SURVEY",
-            "RETURN_HOME",
-            "DOCK",
-            "CHARGE",
-            "TRANSFER_DATA",
-            "MISSION_COMPLETE"
-        ]
+        # ==========================================
+        # Navigation Event Subscribers
+        # ==========================================
+
+        self.takeoff_sub = self.create_subscription(
+            Bool,
+            '/navigation/takeoff_complete',
+            self.takeoff_callback,
+            10
+        )
+
+        self.overview_sub = self.create_subscription(
+            Bool,
+            '/navigation/overview_complete',
+            self.overview_callback,
+            10
+        )
+        
+        self.descend_sub = self.create_subscription(
+            Bool,
+            '/navigation/descend_complete',
+            self.descend_callback,
+            10
+        )
+
+        self.survey_sub = self.create_subscription(
+            Bool,
+            '/navigation/survey_complete',
+            self.survey_callback,
+            10
+        )
+
+        self.home_sub = self.create_subscription(
+            Bool,
+            '/navigation/home_reached',
+            self.home_callback,
+            10
+        )
+
+        self.landed_sub = self.create_subscription(
+            Bool,
+            '/navigation/landed',
+            self.landed_callback,
+            10
+        )
+
+        # ==========================================
+        # Mission State
+        # ==========================================
 
         self.current_state = "IDLE"
 
         self.takeoff_complete = False
+        self.overview_complete = False
+        self.descend_complete = False
         self.survey_complete = False
         self.home_reached = False
-        self.dock_complete = False
-        self.charge_complete = False
-        self.transfer_complete = False
+        self.landed = False
 
         self.start_time = self.get_clock().now()
 
         self.timer = self.create_timer(
             1.0,
-            self.update)
+            self.update
+        )
 
         self.get_logger().info(
-            "ASCEND Mission Manager Started")
+            "ASCEND Mission Manager Started"
+        )
+
+    # ==========================================
+    # Navigation Event Callbacks
+    # ==========================================
+
+    def takeoff_callback(self, msg):
+
+        self.takeoff_complete = msg.data
+
+    def overview_callback(self, msg):
+
+        self.overview_complete = msg.data
+
+    def descend_callback(self, msg):
+
+        self.descend_complete = msg.data
+    
+    def survey_callback(self, msg):
+
+        self.survey_complete = msg.data
+
+    def home_callback(self, msg):
+
+        self.home_reached = msg.data
+
+    def landed_callback(self, msg):
+
+        self.landed = msg.data
+
+    # ==========================================
+    # Utilities
+    # ==========================================
 
     def publish_state(self):
 
@@ -62,83 +141,149 @@ class MissionManager(Node):
             self.start_time.nanoseconds
         ) / 1e9
 
+    def change_state(self, new_state):
+
+        self.current_state = new_state
+
+        self.start_time = self.get_clock().now()
+
+        self.get_logger().info(
+            f"State Changed -> {new_state}"
+        )
+        
+        #Reset event flags
+        self.takeoff_complete = False
+        self.overview_complete = False
+        self.descend_complete = False
+        self.survey_complete = False
+        self.home_reached = False
+        self.landed = False
+
+    # ==========================================
+    # Main State Machine
+    # ==========================================
+
     def update(self):
 
-        # SIMULATION EVENTS
+        # -------------------------------
+        # IDLE
+        # -------------------------------
 
         if self.current_state == "IDLE":
 
             if self.elapsed() > 5:
 
-                self.current_state = "TAKEOFF"
+                self.change_state(
+                    "TAKEOFF"
+                )
 
-                self.start_time = self.get_clock().now()
+        # -------------------------------
+        # TAKEOFF
+        # -------------------------------
 
         elif self.current_state == "TAKEOFF":
 
-            if self.elapsed() > 5:
+            if self.takeoff_complete:
 
-                self.takeoff_complete = True
+                self.change_state(
+                    "OVERVIEW_CAPTURE"
+                )
 
-                self.current_state = "SURVEY"
+        # -------------------------------
+        # OVERVIEW_CAPTURE
+        # -------------------------------
 
-                self.start_time = self.get_clock().now()
+        elif self.current_state == "OVERVIEW_CAPTURE":
+
+            if self.overview_complete:
+
+                self.change_state(
+                    "DESCEND_TO_SURVEY"
+                )
+
+        elif self.current_state == "DESCEND_TO_SURVEY":
+
+            if self.descend_complete:
+
+                self.change_state(
+                    "SURVEY"
+                )
+        
+        # -------------------------------
+        # SURVEY
+        # -------------------------------
 
         elif self.current_state == "SURVEY":
 
-            if self.elapsed() > 20:
+            if self.survey_complete:
 
-                self.survey_complete = True
+                self.change_state(
+                    "RETURN_HOME"
+                )
 
-                self.current_state = "RETURN_HOME"
-
-                self.start_time = self.get_clock().now()
+        # -------------------------------
+        # RETURN_HOME
+        # -------------------------------
 
         elif self.current_state == "RETURN_HOME":
 
-            if self.elapsed() > 10:
+            if self.home_reached:
 
-                self.home_reached = True
+                self.change_state(
+                    "LAND"
+                )
 
-                self.current_state = "DOCK"
+        # -------------------------------
+        # LAND
+        # -------------------------------
 
-                self.start_time = self.get_clock().now()
+        elif self.current_state == "LAND":
+
+            if self.landed:
+
+                self.change_state(
+                    "DOCK"
+                )
+
+        # -------------------------------
+        # DOCK
+        # -------------------------------
 
         elif self.current_state == "DOCK":
 
             if self.elapsed() > 5:
 
-                self.dock_complete = True
+                self.change_state(
+                    "CHARGE"
+                )
 
-                self.current_state = "CHARGE"
-
-                self.start_time = self.get_clock().now()
+        # -------------------------------
+        # CHARGE
+        # -------------------------------
 
         elif self.current_state == "CHARGE":
 
             if self.elapsed() > 10:
 
-                self.charge_complete = True
+                self.change_state(
+                    "TRANSFER_DATA"
+                )
 
-                self.current_state = "TRANSFER_DATA"
-
-                self.start_time = self.get_clock().now()
+        # -------------------------------
+        # TRANSFER_DATA
+        # -------------------------------
 
         elif self.current_state == "TRANSFER_DATA":
 
             if self.elapsed() > 5:
 
-                self.transfer_complete = True
-
-                self.current_state = "MISSION_COMPLETE"
-
-                self.start_time = self.get_clock().now()
+                self.change_state(
+                    "MISSION_COMPLETE"
+                )
 
         self.publish_state()
 
-        self.get_logger().info(
-            f"Mission State: {self.current_state}"
-        )
+    # ==========================================
 
 
 def main(args=None):
@@ -155,4 +300,5 @@ def main(args=None):
 
 
 if __name__ == '__main__':
+
     main()
