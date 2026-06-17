@@ -50,6 +50,7 @@ class VisionNode(Node):
         self.bridge = CvBridge()
 
         self.last_image_msg = None
+        self.latest_frame = None
 
         # ==================================================
         # Storage Paths
@@ -64,6 +65,21 @@ class VisionNode(Node):
         self.metadata_dir = \
             "/home/administrator/ascend_data/metadata"
 
+        os.makedirs(
+            self.hd_dir,
+            exist_ok=True
+        )
+        
+        os.makedirs(
+            self.lr_dir,
+            exist_ok=True
+        )
+        
+        os.makedirs(
+            self.metadata_dir,
+            exist_ok=True
+        )
+        
         # ==================================================
         # Test Images
         # ==================================================
@@ -109,6 +125,13 @@ class VisionNode(Node):
             self.waypoint_callback,
             10
         )
+        
+        self.camera_sub = self.create_subscription(
+            Image,
+            '/vision/latest_image',
+            self.image_callback,
+            10
+        )
 
         # ==================================================
         # Publishers
@@ -128,7 +151,7 @@ class VisionNode(Node):
 
         self.image_pub = self.create_publisher(
             Image,
-            '/vision/latest_image',
+            '/vision/preview_image',
             10
         )
 
@@ -139,6 +162,11 @@ class VisionNode(Node):
         self.create_timer(
             1.0,
             self.publish_latest_image
+        )
+        
+        self.create_timer(
+            15.0,
+            self.capture_overview_image
         )
 
         self.get_logger().info(
@@ -193,6 +221,24 @@ class VisionNode(Node):
 
         self.current_pose = msg
 
+    def image_callback(self, msg):
+
+        self.last_image_msg = msg
+
+        try:
+
+            self.latest_frame = \
+                self.bridge.imgmsg_to_cv2(
+                    msg,
+                    desired_encoding='bgr8'
+                )
+
+        except Exception as e:
+
+            self.get_logger().error(
+                f"Image conversion failed: {e}"
+            )
+    
     # ==================================================
     # Waypoint Callback
     # ==================================================
@@ -227,24 +273,15 @@ class VisionNode(Node):
 
     def capture_overview_image(self):
 
-        image_path = os.path.join(
-            self.test_image_dir,
-            "overview.jpg"
-        )
+        if self.latest_frame is None:
 
-        image = cv2.imread(
-            image_path
-        )
-
-        if image is None:
-
-            self.get_logger().error(
-                "Could not load overview image"
+            self.get_logger().warn(
+                "No camera image available"
             )
 
             return
 
-        self.overview_captured = True
+        image = self.latest_frame.copy()
 
         # ---------------------------------
         # Save HD
@@ -302,6 +339,9 @@ class VisionNode(Node):
 
             "image_type": "overview",
 
+            "camera_source":
+                "IMX477",
+            
             "timestamp":
                 datetime.now().isoformat()
         }
@@ -333,6 +373,8 @@ class VisionNode(Node):
                 indent=4
             )
 
+        self.overview_captured = True
+        
         self.get_logger().info(
             "Overview Image Captured"
         )
@@ -343,27 +385,15 @@ class VisionNode(Node):
 
     def capture_image(self, waypoint_id):
 
-        image_name = self.image_pool[
-            (waypoint_id - 1)
-            % len(self.image_pool)
-        ]
+        if self.latest_frame is None:
 
-        image_path = os.path.join(
-            self.test_image_dir,
-            image_name
-        )
-
-        image = cv2.imread(
-            image_path
-        )
-
-        if image is None:
-
-            self.get_logger().error(
-                f"Could not load image: {image_path}"
+            self.get_logger().warn(
+                "No camera image available"
             )
 
             return
+
+        image = self.latest_frame.copy()
 
         self.image_count += 1
 
@@ -424,6 +454,9 @@ class VisionNode(Node):
         metadata = {
 
             "image_type": "survey",
+            
+            "camera_source":
+                "IMX477",
 
             "image_id":
                 self.image_count,
