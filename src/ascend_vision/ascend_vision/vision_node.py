@@ -57,13 +57,13 @@ class VisionNode(Node):
         # ==================================================
 
         self.hd_dir = \
-            "/home/administrator/ascend_data/hd_images"
+            "/home/mvvk/ascend_data/hd_images"
 
         self.lr_dir = \
-            "/home/administrator/ascend_data/lr_images"
+            "/home/mvvk/ascend_data/lr_images"
 
         self.metadata_dir = \
-            "/home/administrator/ascend_data/metadata"
+            "/home/mvvk/ascend_data/metadata"
 
         os.makedirs(
             self.hd_dir,

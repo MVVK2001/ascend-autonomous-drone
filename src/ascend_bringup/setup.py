@@ -17,7 +17,10 @@ setup(
         ),
         (
             'share/' + package_name + '/launch',
-            ['launch/ascend.launch.py']
+            ['launch/ascend.launch.py',
+             'launch/base_station.launch.py',
+             'launch/drone.launch.py'
+            ]
         ),
     ],
     install_requires=['setuptools'],

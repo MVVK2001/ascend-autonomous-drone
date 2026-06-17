@@ -1,37 +1,28 @@
 from launch import LaunchDescription
-from launch_ros.actions import Node
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+
+from ament_index_python.packages import get_package_share_directory
+
+import os
 
 
 def generate_launch_description():
 
+    bringup_dir = get_package_share_directory(
+        'ascend_bringup'
+    )
+
     return LaunchDescription([
 
-        Node(
-            package='ascend_core',
-            executable='mission_manager',
-            name='mission_manager',
-            output='screen'
-        ),
-
-        Node(
-            package='ascend_navigation',
-            executable='navigation_node',
-            name='navigation_node',
-            output='screen'
-        ),
-
-        Node(
-            package='ascend_telemetry',
-            executable='telemetry_node',
-            name='telemetry_node',
-            output='screen'
-        ),
-        
-        Node(
-            package='ascend_vision',
-            executable='vision_node',
-            name='vision_node',
-            output='screen'
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(
+                    bringup_dir,
+                    'launch',
+                    'base_station.launch.py'
+                )
+            )
         ),
 
     ])

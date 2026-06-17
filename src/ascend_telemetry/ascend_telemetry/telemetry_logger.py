@@ -24,7 +24,7 @@ class TelemetryLogger(Node):
         # Storage Paths
         # ==================================================
 
-        self.logs_dir = "/home/administrator/ascend_data/logs"
+        self.logs_dir = "/home/mvvk/ascend_data/logs"
 
         os.makedirs(
             self.logs_dir,
