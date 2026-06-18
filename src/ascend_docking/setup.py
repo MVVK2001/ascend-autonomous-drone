@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'docking_node = ascend_docking.docking_node:main',
         ],
     },
 )
